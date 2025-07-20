@@ -88,60 +88,12 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			continue
 		}
 
-		fingerprint, err := FingerprintPEMKey(parsedKey)
-		if err != nil {
-			continue
-		}
-
 		if verify {
 			var (
 				wg                 sync.WaitGroup
 				extraData          = newExtraData()
 				verificationErrors = NewVerificationErrors(3)
 			)
-
-			// Look up certificate information.
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				data, err := lookupFingerprintCertificateUrls(ctx, fingerprint, s.IncludeExpired)
-				if err == nil {
-					if data != nil {
-						extraData.Add("certificate_urls", strings.Join(data.CertificateURLs, ", "))
-					}
-				} else {
-					verificationErrors.Add(err)
-				}
-			}()
-
-			// Test SSH key against github.com
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				username, err := VerifyGitHubUser(ctx, parsedKey)
-				if err != nil && !errors.Is(err, errPermissionDenied) {
-					verificationErrors.Add(err)
-				}
-				if username != nil {
-					isFalsePositive, _ := detectors.IsKnownFalsePositive(*username, falsePositiveGHUsernames, false)
-					if !isFalsePositive {
-						extraData.Add("github_user", *username)
-					}
-				}
-			}()
-
-			// Test SSH key against gitlab.com
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				user, err := VerifyGitLabUser(ctx, parsedKey)
-				if err != nil && !errors.Is(err, errPermissionDenied) {
-					verificationErrors.Add(err)
-				}
-				if user != nil {
-					extraData.Add("gitlab_user", *user)
-				}
-			}()
 
 			// Test SSH key against aur.archlinux.org
 			wg.Add(1)
