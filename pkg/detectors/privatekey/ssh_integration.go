@@ -26,6 +26,12 @@ var gitlabFingerprints = map[string]string{
 	"SHA256:ROQFvPThGrW4RuWLoL9tq9I9zJ42fK4XywyRtbOz/EQ": "RSA",
 }
 
+var aurFingerprints = map[string]string{
+	"SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4": "ED25519",
+	"SHA256:uTa/0PndEgPZTf76e1DFqXKJEXKsn7m9ivhLQtzGOCI": "ECDSA",
+	"SHA256:5s5cIyReIfNNVGRFdDbe3hdYiI5OelHGpw2rOUud3Q8": "RSA",
+}
+
 func firstResponseFromSSH(ctx context.Context, parsedKey any, username, hostport string) (string, error) {
 	signer, err := ssh.NewSignerFromKey(parsedKey)
 	if err != nil {
@@ -50,8 +56,13 @@ func firstResponseFromSSH(ctx context.Context, parsedKey any, username, hostport
 				if _, ok := gitlabFingerprints[fingerprint]; !ok {
 					return fmt.Errorf("unknown host fingerprint for gitlab.com, got %s", fingerprint)
 				}
+			case "aur.archlinux.org:22":
+				fingerprint := fingerprintSSHPublicKey(key)
+				if _, ok := aurFingerprints[fingerprint]; !ok {
+					return fmt.Errorf("unknown host fingerprint for aur.archlinux.org, got %s", fingerprint)
+				}
 			default:
-				return errors.New("unknown host in fingerprint db")
+				return fmt.Errorf("unknown host %s in fingerprint db", hostname)
 			}
 			return nil
 		},
@@ -134,6 +145,28 @@ func VerifyGitLabUser(ctx context.Context, parsedKey any) (*string, error) {
 	if strings.Contains(output, "Welcome to GitLab") {
 		split := strings.Split(output, " ")
 		username := strings.TrimPrefix(strings.TrimSuffix(split[len(split)-1], "!"), "@")
+		return &username, nil
+	}
+
+	return nil, nil
+}
+
+func VerifyAURUser(ctx context.Context, parsedKey any) (*string, error) {
+	output, err := firstResponseFromSSH(ctx, parsedKey, "aur", "aur.archlinux.org:22")
+	fmt.Println("AUR output:", output)
+	fmt.Println("AUR error:", err)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("AUR output:", output)
+
+	if strings.Contains(output, "Permission denied") {
+		return nil, errPermissionDenied
+	}
+
+	if strings.Contains(output, "Welcome to AUR") {
+		username := strings.TrimSuffix(strings.Split(output, " ")[3], "!")
 		return &username, nil
 	}
 

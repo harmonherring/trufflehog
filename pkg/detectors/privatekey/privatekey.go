@@ -143,6 +143,19 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 			}()
 
+			// Test SSH key against aur.archlinux.org
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				user, err := VerifyAURUser(ctx, parsedKey)
+				if err != nil && !errors.Is(err, errPermissionDenied) {
+					verificationErrors.Add(err)
+				}
+				if user != nil {
+					extraData.Add("aur_user", *user)
+				}
+			}()
+
 			wg.Wait()
 			if len(extraData.data) > 0 {
 				s1.Verified = true
