@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	logContext "github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -153,8 +154,8 @@ func VerifyGitLabUser(ctx context.Context, parsedKey any) (*string, error) {
 
 func VerifyAURUser(ctx context.Context, parsedKey any) (*string, error) {
 	output, err := firstResponseFromSSH(ctx, parsedKey, "aur", "aur.archlinux.org:22")
-	fmt.Println("AUR output:", output)
-	fmt.Println("AUR error:", err)
+	logger := logContext.AddLogger(ctx).Logger().WithName("privatekey")
+	logger.Info("AUR output", "output", strings.ReplaceAll(output, "\n", ". "), "error", err)
 	if err != nil {
 		return nil, err
 	}
